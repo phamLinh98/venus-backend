@@ -23,8 +23,17 @@ app.get("/api/info", async (req, res) => {
     if (error) {
       return res.status(500).json({ error: error.message });
     }
+    const result = data.map((user) => ({
+      id: user.id,
+      namelogin: user.namelogin,
+      nameshow: user.nameshow,
+      email: user.email,
+      avatar: user.avatar,
+      department: user.department,
+      job: user.job,
+    }));
 
-    res.json(data);
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: "Internal Server Error" });
   }
