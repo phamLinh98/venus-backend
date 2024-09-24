@@ -69,6 +69,31 @@ app.get("/api/chat", async (req, res) => {
   }
 });
 
+app.get("/api/chat-follow-namelogin", async (req, res) => {
+  try {
+    const namelogin = req.headers.namelogin; // Get namelogin from headers
+
+    if (!namelogin) {
+      return res.status(400).json({ error: "namelogin is required" });
+    }
+
+    // Perform the query and filter for records where `user` contains `namelogin`
+    const { data, error } = await supabase
+      .from("chat")
+      .select("*")
+      .or(`user->>0.ilike.${namelogin},user->>1.ilike.${namelogin}`); // Correct JSON querying
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+    // Return the found records
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
 app.listen(port, () => {
   console.log(`API is running on http://localhost:${port}`);
 });
