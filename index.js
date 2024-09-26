@@ -41,7 +41,7 @@ app.get("/api/info", async (req, res) => {
   }
 });
 
-app.get("/api/find-user", async (req, res) => {
+app.post("/api/find-user", async (req, res) => {
   const { namelogin, password } = req.body;
   try {
     const { data, error } = await supabase
