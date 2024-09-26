@@ -60,7 +60,7 @@ app.post("/api/find-user", async (req, res) => {
     }
 
     // Trả về thông tin user nếu tìm thấy
-    res.status(200).json({ user: data });
+    res.status(200).json(data);
   } catch (err) {
     res.status(500).json({ message: "Lỗi máy chủ", err });
   }
