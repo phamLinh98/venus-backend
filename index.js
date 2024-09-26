@@ -15,6 +15,8 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 // get list data info from supabase
 app.get("/api/info", async (req, res) => {
@@ -36,6 +38,31 @@ app.get("/api/info", async (req, res) => {
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.get("/api/find-user", async (req, res) => {
+  const { namelogin, password } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from("info")
+      .select("*")
+      .eq("namelogin", namelogin)
+      .eq("password", password);
+    if (error) {
+      return res
+        .status(500)
+        .json({ message: "Lỗi truy vấn cơ sở dữ liệu", error });
+    }
+
+    if (data.length === 0) {
+      return res.status(404).json({ message: "Không tìm thấy user" });
+    }
+
+    // Trả về thông tin user nếu tìm thấy
+    res.status(200).json({ user: data });
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi máy chủ", err });
   }
 });
 
@@ -76,7 +103,6 @@ app.get("/api/chat-follow-namelogin", async (req, res) => {
     if (!namelogin) {
       return res.status(400).json({ error: "namelogin is required" });
     }
-
     // Perform the query and filter for records where `user` contains `namelogin`
     const { data, error } = await supabase
       .from("chat")
@@ -92,7 +118,6 @@ app.get("/api/chat-follow-namelogin", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
 
 app.listen(port, () => {
   console.log(`API is running on http://localhost:${port}`);
