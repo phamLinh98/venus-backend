@@ -96,39 +96,26 @@ app.get("/api/chat", async (req, res) => {
   }
 });
 
-// API để nhận 2 namelogin và trả về contents tương ứng nếu cả 2 tồn tại trong mảng user
-app.post('/api/get-chat-double-user', async (req, res) => {
-  const { namelogin1, namelogin2 } = req.body;
-
-  if (!namelogin1 || !namelogin2) {
-      return res.status(400).json({ error: 'Both namelogin1 and namelogin2 are required' });
-  }
-
+app.get("/api/chat-follow-namelogin", async (req, res) => {
   try {
-      // Lấy dữ liệu từ bảng chat trên Supabase
-      const { data, error } = await supabase
-          .from('chat') // Tên bảng của bạn
-          .select('*');
+    const namelogin = req.headers.namelogin; // Get namelogin from headers
 
-      if (error) {
-          return res.status(500).json({ error: 'Error fetching data from Supabase' });
-      }
+    if (!namelogin) {
+      return res.status(400).json({ error: "namelogin is required" });
+    }
+    // Perform the query and filter for records where `user` contains `namelogin`
+    const { data, error } = await supabase
+      .from("chat")
+      .select("*")
+      .or(`user->>0.ilike.${namelogin},user->>1.ilike.${namelogin}`); // Correct JSON querying
 
-      // Tìm dữ liệu chat có chứa cả 2 namelogin trong mảng user
-      const chatData = data.find(chat => chat.user.includes(namelogin1) && chat.user.includes(namelogin2));
-
-      if (!chatData) {
-          return res.status(404).json({ error: 'One or both users not found in chat' });
-      }
-
-      // Trả về contents tương ứng với cả 2 người dùng
-      const filteredContents = chatData.contents.filter(
-          content => content.name === namelogin1 || content.name === namelogin2
-      );
-
-      res.json({ contents: filteredContents });
-  } catch (err) {
-      res.status(500).json({ error: 'Internal server error' });
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+    // Return the found records
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
