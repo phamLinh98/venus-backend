@@ -89,7 +89,7 @@ app.post("/api/info", async (req, res) => {
   res.status(200).json(data);
 });
 
-// get list data chat of all users 
+// get list data chat of all users
 app.get("/api/chat", async (req, res) => {
   try {
     const { data, error } = await supabase.from("chat").select("*");
@@ -127,41 +127,118 @@ app.get("/api/chat-follow-namelogin", async (req, res) => {
 });
 
 // get chat content from login user and clicked user (click from dashboard and show in message)
-app.post('/api/get-chat-double-user', async (req, res) => {
+app.post("/api/get-chat-double-user", async (req, res) => {
   const { namelogin1, namelogin2 } = req.body;
 
   if (!namelogin1 || !namelogin2) {
-      return res.status(400).json({ error: 'Both namelogin1 and namelogin2 are required' });
+    return res
+      .status(400)
+      .json({ error: "Both namelogin1 and namelogin2 are required" });
   }
 
   try {
-      // Lấy dữ liệu từ bảng chat trên Supabase
-      const { data, error } = await supabase
-          .from('chat') // Tên bảng của bạn
-          .select('*');
+    // Lấy dữ liệu từ bảng chat trên Supabase
+    const { data, error } = await supabase
+      .from("chat") // Tên bảng của bạn
+      .select("*");
 
-      if (error) {
-          return res.status(500).json({ error: 'Error fetching data from Supabase' });
-      }
+    if (error) {
+      return res
+        .status(500)
+        .json({ error: "Error fetching data from Supabase" });
+    }
 
-      // Tìm dữ liệu chat có chứa cả 2 namelogin trong mảng user
-      const chatData = data.find(chat => chat.user.includes(namelogin1) && chat.user.includes(namelogin2));
+    // Tìm dữ liệu chat có chứa cả 2 namelogin trong mảng user
+    const chatData = data.find(
+      (chat) => chat.user.includes(namelogin1) && chat.user.includes(namelogin2)
+    );
 
-      if (!chatData) {
-          return res.status(404).json({ error: 'One or both users not found in chat' });
-      }
+    if (!chatData) {
+      return res
+        .status(404)
+        .json({ error: "One or both users not found in chat" });
+    }
 
-      // Trả về contents tương ứng với cả 2 người dùng
-      const filteredContents = chatData.contents.filter(
-          content => content.name === namelogin1 || content.name === namelogin2
-      );
+    // Trả về contents tương ứng với cả 2 người dùng
+    const filteredContents = chatData.contents.filter(
+      (content) => content.name === namelogin1 || content.name === namelogin2
+    );
 
-      res.json({ contents: filteredContents });
+    res.json({ contents: filteredContents });
   } catch (err) {
-      res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
+// update liked in chat when user click
+
+app.post("/api/update-liked", async (req, res) => {
+  const { namelogin1, namelogin2, key, liked } = req.body;
+
+  // Kiểm tra input hợp lệ
+  if (!namelogin1 || !namelogin2 || key === undefined || liked === undefined) {
+    return res
+      .status(400)
+      .json({ error: "Both namelogin1, namelogin2, key, and liked are required" });
+  }
+
+  try {
+    // Lấy dữ liệu từ bảng chat trên Supabase
+    const { data, error } = await supabase
+      .from("chat") // Tên bảng của bạn
+      .select("*");
+
+    if (error) {
+      return res
+        .status(500)
+        .json({ error: "Error fetching data from Supabase" });
+    }
+
+    // Tìm dữ liệu chat có chứa cả 2 namelogin trong mảng user
+    const chatData = data.find(
+      (chat) => chat.user.includes(namelogin1) && chat.user.includes(namelogin2)
+    );
+
+    console.log('chatData :>> ', chatData);
+
+    if (!chatData) {
+      return res
+        .status(404)
+        .json({ error: "One or both users not found in chat" });
+    }
+
+    // Tìm message với key tương ứng
+    const contentIndex = chatData.contents.findIndex((item) => item.key === Number(key));
+
+    console.log('contentIndex :>> ', contentIndex);
+
+    if (contentIndex === -1) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    // Đảo ngược giá trị liked cho nội dung tương ứng với key
+    chatData.contents[contentIndex].liked = !chatData.contents[contentIndex].liked;
+
+    // Cập nhật lại dữ liệu trong Supabase
+    const { error: updateError } = await supabase
+      .from('chat')
+      .update({ contents: chatData.contents })
+      .eq('id', chatData.id);
+
+    if (updateError) {
+      return res.status(500).json({ error: "Error updating liked status" });
+    }
+
+    // Trả về dữ liệu contents với liked đã được đảo ngược
+    const filteredContents = chatData.contents.filter(
+      (content) => content.name === namelogin1 || content.name === namelogin2
+    );
+
+    res.json({ contents: filteredContents });
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 app.listen(port, () => {
   console.log(`API is running on http://localhost:${port}`);
