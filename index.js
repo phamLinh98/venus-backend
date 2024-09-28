@@ -7,14 +7,18 @@ const app = express();
 app.use(express.json());
 const port = 5000;
 
+//config info from environment
 const supabaseUrl = process.env.SUPBASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// CORS what domain can connect and call to api
 const corsOptions = {
   origin: ["https://linhthusinh.vercel.app", "http://localhost:5173"],
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
+// Allow call api with body form-data
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -41,6 +45,7 @@ app.get("/api/info", async (req, res) => {
   }
 });
 
+// check and get login user infomation
 app.post("/api/find-user", async (req, res) => {
   const { namelogin, password } = req.body;
   try {
@@ -66,7 +71,7 @@ app.post("/api/find-user", async (req, res) => {
   }
 });
 
-// add new records to info
+// adding new user to list member (sigin)
 app.post("/api/info", async (req, res) => {
   const { id, namelogin, nameshow, email, avatar, department, password, job } =
     req.body;
@@ -84,6 +89,7 @@ app.post("/api/info", async (req, res) => {
   res.status(200).json(data);
 });
 
+// get list data chat of all users 
 app.get("/api/chat", async (req, res) => {
   try {
     const { data, error } = await supabase.from("chat").select("*");
@@ -96,6 +102,7 @@ app.get("/api/chat", async (req, res) => {
   }
 });
 
+// get list data user name is chatting with login user
 app.get("/api/chat-follow-namelogin", async (req, res) => {
   try {
     const namelogin = req.headers.namelogin; // Get namelogin from headers
@@ -119,7 +126,7 @@ app.get("/api/chat-follow-namelogin", async (req, res) => {
   }
 });
 
-// API để nhận 2 namelogin và trả về contents tương ứng nếu cả 2 tồn tại trong mảng user
+// get chat content from login user and clicked user (click from dashboard and show in message)
 app.post('/api/get-chat-double-user', async (req, res) => {
   const { namelogin1, namelogin2 } = req.body;
 
