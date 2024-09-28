@@ -209,9 +209,6 @@ app.post("/api/update-liked", async (req, res) => {
 
     // Tìm message với key tương ứng
     const contentIndex = chatData.contents.findIndex((item) => item.key === Number(key));
-
-    console.log('contentIndex :>> ', contentIndex);
-
     if (contentIndex === -1) {
       return res.status(404).json({ error: 'Message not found' });
     }
@@ -234,7 +231,10 @@ app.post("/api/update-liked", async (req, res) => {
       (content) => content.name === namelogin1 || content.name === namelogin2
     );
 
-    res.json({ contents: filteredContents });
+    const itemWithKey1 = filteredContents.find(item => item.key === Number(key));
+    console.log('itemWithKey1 :>> ', itemWithKey1);
+
+    res.json(itemWithKey1);
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }
