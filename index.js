@@ -21,6 +21,7 @@ app.use(cors(corsOptions));
 // Allow call api with body form-data
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+const getCurrentTimeInSeconds = () => Math.floor(Date.now() / 1000);
 
 // get list data info from supabase
 app.get("/api/info", async (req, res) => {
@@ -102,6 +103,54 @@ app.get("/api/chat", async (req, res) => {
   }
 });
 
+app.post('/api/add-chat', async (req, res) => {
+  const { id, avatar, name, content } = req.body;
+
+  try {
+    // Lấy dữ liệu hiện có trong bảng `chat` với ID tương ứng
+    const { data: chatData, error } = await supabase
+      .from('chat')
+      .select('*')
+      .eq('id', id);
+
+    if (error) {
+      return res.status(500).json({ error: 'Error fetching chat data' });
+    }
+
+    if (!chatData || chatData.length === 0) {
+      return res.status(404).json({ message: 'No chat found with the given id' });
+    }
+
+    // Tạo bản ghi mới dựa trên dữ liệu đầu vào và cập nhật `contents`
+    const newRecord = {
+      id: `${Date.now()}`, // Tạo ID tăng dần theo thời gian hiện tại
+      key: chatData[0].contents.length + 1, // Key mới dựa vào số lượng bản ghi hiện tại
+      name: name,
+      time: getCurrentTimeInSeconds(),
+      liked: false,
+      avatar: avatar,
+      content: content,
+    };
+
+    // Cập nhật mảng `contents` với bản ghi mới
+    const updatedContents = [...chatData[0].contents, newRecord];
+
+    // Cập nhật dữ liệu trong bảng `chat`
+    const { error: updateError } = await supabase
+      .from('chat')
+      .update({ contents: updatedContents })
+      .eq('id', id);
+
+    if (updateError) {
+      return res.status(500).json({ error: 'Error updating chat contents' });
+    }
+
+    return res.status(200).json({ message: 'Chat updated successfully', updatedContents });
+  } catch (error) {
+    console.error('Error adding chat:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 // get list data user name is chatting with login user
 app.get("/api/chat-follow-namelogin", async (req, res) => {
   try {
