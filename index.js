@@ -93,7 +93,7 @@ app.post("/api/info", async (req, res) => {
 // get list data chat of all users
 app.get("/api/chat", async (req, res) => {
   try {
-    const { data, error } = await supabase.from("chat").select("*");
+    const { data, error } = await supabase.from("chat").select("*").order('id');
     if (error) {
       return res.status(500).json({ error: error.message });
     }
@@ -104,7 +104,7 @@ app.get("/api/chat", async (req, res) => {
 });
 
 app.post('/api/add-chat', async (req, res) => {
-  const { id, avatar, name, content, idUser } = req.body;
+  const { id, avatar, name, content, isUser } = req.body;
 
   try {
     // Lấy dữ liệu hiện có trong bảng `chat` với ID tương ứng
@@ -123,13 +123,14 @@ app.post('/api/add-chat', async (req, res) => {
 
     // Tạo bản ghi mới dựa trên dữ liệu đầu vào và cập nhật `contents`
     const newRecord = {
-      id: idUser, // Tạo ID tăng dần theo thời gian hiện tại
+      id: id, // Tạo ID tăng dần theo thời gian hiện tại
       key: chatData[0].contents.length + 1, // Key mới dựa vào số lượng bản ghi hiện tại
       name: name,
       time: getCurrentTimeInSeconds(),
       liked: false,
       avatar: avatar,
       content: content,
+      isUser:isUser
     };
 
     // Cập nhật mảng `contents` với bản ghi mới
