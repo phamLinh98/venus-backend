@@ -23,6 +23,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 const getCurrentTimeInSeconds = () => Math.floor(Date.now() / 1000);
 
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*", // Chấp nhận tất cả domain (có thể điều chỉnh theo domain của bạn)
+  },
+});
+
 // get list data info from supabase
 app.get("/api/info", async (req, res) => {
   try {
@@ -93,7 +99,7 @@ app.post("/api/info", async (req, res) => {
 // get list data chat of all users
 app.get("/api/chat", async (req, res) => {
   try {
-    const { data, error } = await supabase.from("chat").select("*").order('id');
+    const { data, error } = await supabase.from("chat").select("*").order("id");
     if (error) {
       return res.status(500).json({ error: error.message });
     }
@@ -103,27 +109,29 @@ app.get("/api/chat", async (req, res) => {
   }
 });
 
-app.post('/api/add-chat', async (req, res) => {
+app.post("/api/add-chat", async (req, res) => {
   const { id, avatar, name, content } = req.body;
 
   try {
     // Lấy dữ liệu hiện có trong bảng `chat` với ID tương ứng
     const { data: chatData, error } = await supabase
-      .from('chat')
-      .select('*')
-      .eq('id', id);
+      .from("chat")
+      .select("*")
+      .eq("id", id);
 
     if (error) {
-      return res.status(500).json({ error: 'Error fetching chat data' });
+      return res.status(500).json({ error: "Error fetching chat data" });
     }
 
     if (!chatData || chatData.length === 0) {
-      return res.status(404).json({ message: 'No chat found with the given id' });
+      return res
+        .status(404)
+        .json({ message: "No chat found with the given id" });
     }
 
     // Tạo bản ghi mới dựa trên dữ liệu đầu vào và cập nhật `contents`
     const newRecord = {
-      id: id, 
+      id: id,
       key: chatData[0].contents.length + 1,
       name: name,
       time: getCurrentTimeInSeconds(),
@@ -137,18 +145,18 @@ app.post('/api/add-chat', async (req, res) => {
 
     // Cập nhật dữ liệu trong bảng `chat`
     const { error: updateError } = await supabase
-      .from('chat')
+      .from("chat")
       .update({ contents: updatedContents })
-      .eq('id', id);
+      .eq("id", id);
 
     if (updateError) {
-      return res.status(500).json({ error: 'Error updating chat contents' });
+      return res.status(500).json({ error: "Error updating chat contents" });
     }
 
     return res.status(200).json({ updatedContents });
   } catch (error) {
-    console.error('Error adding chat:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error("Error adding chat:", error);
+    res.status(500).json({ error: "Server error" });
   }
 });
 // get list data user name is chatting with login user
@@ -228,7 +236,9 @@ app.post("/api/update-liked", async (req, res) => {
   if (!namelogin1 || !namelogin2 || key === undefined || liked === undefined) {
     return res
       .status(400)
-      .json({ error: "Both namelogin1, namelogin2, key, and liked are required" });
+      .json({
+        error: "Both namelogin1, namelogin2, key, and liked are required",
+      });
   }
 
   try {
@@ -248,7 +258,7 @@ app.post("/api/update-liked", async (req, res) => {
       (chat) => chat.user.includes(namelogin1) && chat.user.includes(namelogin2)
     );
 
-    console.log('chatData :>> ', chatData);
+    console.log("chatData :>> ", chatData);
 
     if (!chatData) {
       return res
@@ -257,19 +267,22 @@ app.post("/api/update-liked", async (req, res) => {
     }
 
     // Tìm message với key tương ứng
-    const contentIndex = chatData.contents.findIndex((item) => item.key === Number(key));
+    const contentIndex = chatData.contents.findIndex(
+      (item) => item.key === Number(key)
+    );
     if (contentIndex === -1) {
-      return res.status(404).json({ error: 'Message not found' });
+      return res.status(404).json({ error: "Message not found" });
     }
 
     // Đảo ngược giá trị liked cho nội dung tương ứng với key
-    chatData.contents[contentIndex].liked = !chatData.contents[contentIndex].liked;
+    chatData.contents[contentIndex].liked =
+      !chatData.contents[contentIndex].liked;
 
     // Cập nhật lại dữ liệu trong Supabase
     const { error: updateError } = await supabase
-      .from('chat')
+      .from("chat")
       .update({ contents: chatData.contents })
-      .eq('id', chatData.id);
+      .eq("id", chatData.id);
 
     if (updateError) {
       return res.status(500).json({ error: "Error updating liked status" });
@@ -280,13 +293,39 @@ app.post("/api/update-liked", async (req, res) => {
       (content) => content.name === namelogin1 || content.name === namelogin2
     );
 
-    const itemWithKey1 = filteredContents.find(item => item.key === Number(key));
-    console.log('itemWithKey1 :>> ', itemWithKey1);
+    const itemWithKey1 = filteredContents.find(
+      (item) => item.key === Number(key)
+    );
+    console.log("itemWithKey1 :>> ", itemWithKey1);
 
     res.json(itemWithKey1);
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }
+});
+
+supabase
+  .channel("realtime:public:chat")
+  .on(
+    "postgres_changes",
+    { event: "*", schema: "public", table: "chat" },
+    (payload) => {
+      console.log("Chat data changed:", payload);
+
+      // Gửi dữ liệu mới qua WebSocket cho tất cả các client đã kết nối
+      io.emit("chatUpdated", payload.new);
+    }
+  )
+  .subscribe();
+
+// Lắng nghe các client kết nối
+io.on("connection", (socket) => {
+  console.log("Client connected");
+
+  // Bạn có thể lắng nghe thêm các sự kiện từ client ở đây
+  socket.on("disconnect", () => {
+    console.log("Client disconnected");
+  });
 });
 
 app.listen(port, () => {
