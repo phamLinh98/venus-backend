@@ -104,7 +104,7 @@ app.get("/api/chat", async (req, res) => {
 });
 
 app.post('/api/add-chat', async (req, res) => {
-  const { id, avatar, name, content, isUser } = req.body;
+  const { id, avatar, name, content } = req.body;
 
   try {
     // Lấy dữ liệu hiện có trong bảng `chat` với ID tương ứng
@@ -123,14 +123,13 @@ app.post('/api/add-chat', async (req, res) => {
 
     // Tạo bản ghi mới dựa trên dữ liệu đầu vào và cập nhật `contents`
     const newRecord = {
-      id: id, // Tạo ID tăng dần theo thời gian hiện tại
-      key: chatData[0].contents.length + 1, // Key mới dựa vào số lượng bản ghi hiện tại
+      id: id, 
+      key: chatData[0].contents.length + 1,
       name: name,
       time: getCurrentTimeInSeconds(),
       liked: false,
       avatar: avatar,
       content: content,
-      isUser:isUser
     };
 
     // Cập nhật mảng `contents` với bản ghi mới
@@ -146,7 +145,7 @@ app.post('/api/add-chat', async (req, res) => {
       return res.status(500).json({ error: 'Error updating chat contents' });
     }
 
-    return res.status(200).json({ message: 'Chat updated successfully', updatedContents });
+    return res.status(200).json({ updatedContents });
   } catch (error) {
     console.error('Error adding chat:', error);
     res.status(500).json({ error: 'Server error' });
