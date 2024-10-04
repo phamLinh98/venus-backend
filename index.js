@@ -2,10 +2,15 @@ import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import "dotenv/config";
 import cors from "cors";
+import http from "http";
+import { Server } from "socket.io";
+
 
 const app = express();
 app.use(express.json());
 const port = 5000;
+
+const httpServer = http.createServer(app);
 
 //config info from environment
 const supabaseUrl = process.env.SUPBASE_URL;
@@ -28,7 +33,6 @@ const io = new Server(httpServer, {
     origin: "*", // Chấp nhận tất cả domain (có thể điều chỉnh theo domain của bạn)
   },
 });
-
 // get list data info from supabase
 app.get("/api/info", async (req, res) => {
   try {
@@ -328,6 +332,6 @@ io.on("connection", (socket) => {
   });
 });
 
-app.listen(port, () => {
+httpServer.listen(port, () => {
   console.log(`API is running on http://localhost:${port}`);
 });
