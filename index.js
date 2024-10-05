@@ -114,7 +114,7 @@ app.get("/api/chat", async (req, res) => {
 });
 
 app.post("/api/add-chat", async (req, res) => {
-  const { id, avatar, name, content } = req.body;
+  const { id,userIdSending,  avatar, name, content } = req.body;
 
   try {
     // Lấy dữ liệu hiện có trong bảng `chat` với ID tương ứng
@@ -136,6 +136,7 @@ app.post("/api/add-chat", async (req, res) => {
     // Tạo bản ghi mới dựa trên dữ liệu đầu vào và cập nhật `contents`
     const newRecord = {
       id: id,
+      userIdSending:userIdSending,
       key: chatData[0].contents.length + 1,
       name: name,
       time: getCurrentTimeInSeconds(),
