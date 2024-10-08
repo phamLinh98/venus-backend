@@ -215,6 +215,8 @@ app.post("/api/get-chat-double-user", async (req, res) => {
       (chat) => chat.user.includes(namelogin1) && chat.user.includes(namelogin2)
     );
 
+    console.log('chatData :>> ', chatData);
+
     if (!chatData) {
       return res
         .status(404)
@@ -222,11 +224,11 @@ app.post("/api/get-chat-double-user", async (req, res) => {
     }
 
     // Trả về contents tương ứng với cả 2 người dùng
-    const filteredContents = chatData.contents.filter(
-      (content) => content.name === namelogin1 || content.name === namelogin2
-    );
+    // const filteredContents = chatData.contents.filter(
+    //   (content) => content.name === namelogin1 || content.name === namelogin2
+    // );
 
-    res.json({ contents: filteredContents });
+    res.json({ chatData });
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }
