@@ -336,7 +336,7 @@ io.on("connection", (socket) => {
 });
 
 io.connect(url, {
-  transports: ['polling', 'websocket']
+  transports: ['websocket']
 })
 
 httpServer.listen(port, () => {
