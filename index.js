@@ -335,10 +335,6 @@ io.on("connection", (socket) => {
   });
 });
 
-io.connect(url, {
-  transports: ['websocket']
-})
-
 httpServer.listen(port, () => {
   console.log(`API is running on http://localhost:${port}`);
 });
