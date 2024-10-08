@@ -228,7 +228,7 @@ app.post("/api/get-chat-double-user", async (req, res) => {
     //   (content) => content.name === namelogin1 || content.name === namelogin2
     // );
 
-    res.json({ chatData });
+    res.json(chatData);
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }
