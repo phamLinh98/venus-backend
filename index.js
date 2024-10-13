@@ -113,8 +113,9 @@ app.get("/api/chat", async (req, res) => {
   }
 });
 
+//Thêm mới bản ghi cho contents chat giữa 2 user 
 app.post("/api/add-chat", async (req, res) => {
-  const { id,userIdSending,  avatar, name, content } = req.body;
+  const { id, userIdSending, avatar, name, content, userClick } = req.body;
 
   try {
     // Lấy dữ liệu hiện có trong bảng `chat` với ID tương ứng
@@ -128,15 +129,13 @@ app.post("/api/add-chat", async (req, res) => {
     }
 
     if (!chatData || chatData.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No chat found with the given id" });
+      return res.status(404).json({ message: "No chat found with the given id" });
     }
 
     // Tạo bản ghi mới dựa trên dữ liệu đầu vào và cập nhật `contents`
     const newRecord = {
       id: id,
-      userIdSending:userIdSending,
+      userIdSending: userIdSending,
       key: chatData[0].contents.length + 1,
       name: name,
       time: getCurrentTimeInSeconds(),
@@ -146,7 +145,23 @@ app.post("/api/add-chat", async (req, res) => {
     };
 
     // Cập nhật mảng `contents` với bản ghi mới
-    const updatedContents = [...chatData[0].contents, newRecord];
+    let updatedContents = [...chatData[0].contents, newRecord];
+
+    // Kiểm tra điều kiện bổ sung: nếu `contents` ban đầu là mảng rỗng và tên trùng
+    if (chatData[0].contents.length === 0 && name === newRecord.name) {
+      const newRecordTwo = {
+        id: id,
+        userIdSending: userIdSending,
+        key: updatedContents.length + 1,
+        name: userClick,
+        time: getCurrentTimeInSeconds(),
+        liked: false,
+        avatar: avatar,
+      };
+
+      // Thêm `newRecordTwo` vào `updatedContents`
+      updatedContents = [...updatedContents, newRecordTwo];
+    }
 
     // Cập nhật dữ liệu trong bảng `chat`
     const { error: updateError } = await supabase
@@ -164,6 +179,7 @@ app.post("/api/add-chat", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 // get list data user name is chatting with login user
 app.get("/api/chat-follow-namelogin", async (req, res) => {
   try {
