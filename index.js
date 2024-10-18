@@ -5,7 +5,6 @@ import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
 
-
 const app = express();
 app.use(express.json());
 const port = 5000;
@@ -113,12 +112,12 @@ app.get("/api/chat", async (req, res) => {
   }
 });
 
-//Thêm mới bản ghi cho contents chat giữa 2 user 
+//Thêm mới bản ghi cho contents chat giữa 2 user
 app.post("/api/add-chat", async (req, res) => {
   const { id, userIdSending, avatar, name, content, userClick } = req.body;
 
   try {
-    // Lấy dữ liệu hiện có trong bảng `chat` với ID tương ứng
+    // Check if the chat with the given ID exists
     const { data: chatData, error } = await supabase
       .from("chat")
       .select("*")
@@ -128,11 +127,90 @@ app.post("/api/add-chat", async (req, res) => {
       return res.status(500).json({ error: "Error fetching chat data" });
     }
 
+    // If the chat does not exist, create a new record
     if (!chatData || chatData.length === 0) {
-      return res.status(404).json({ message: "No chat found with the given id" });
+      // Create the new chat record
+      const newChat = {
+        id: id,
+        user: [name, userClick],
+        contents: [],
+      };
+
+      // Insert the new chat record
+      const { error: insertError } = await supabase
+        .from("chat")
+        .insert([newChat]);
+
+      if (insertError) {
+        return res
+          .status(500)
+          .json({ error: "Error creating new chat record" });
+      }
+
+      // Create newRecordTwo to add to contents
+      let key = 1;
+      const newRecordTwo = {
+        id: id,
+        userIdSending: userIdSending,
+        key: key, // Start with key 1 for the first content item
+        name: name,
+        time: getCurrentTimeInSeconds(),
+        liked: false,
+        avatar: avatar,
+        content: content,
+      };
+
+      const newRecordThree = {
+        id: id,
+        key: key + 1, 
+        name: userClick,
+        time: getCurrentTimeInSeconds(),
+        liked: false,
+        avatar: avatar,
+      };
+
+      // Update the chat with the newRecordTwo in contents
+      const { error: updateContentsError } = await supabase
+        .from("chat")
+        .update({ contents: [newRecordTwo, newRecordThree] })
+        .eq("id", id);
+
+      if (updateContentsError) {
+        return res.status(500).json({ error: "Error updating chat contents" });
+      }
+
+      return res.status(201).json({
+        contents: {
+          id: id,
+          user: [name, userClick],
+          contents: [newRecordTwo, newRecordThree],
+        },
+      });
     }
 
-    // Tạo bản ghi mới dựa trên dữ liệu đầu vào và cập nhật `contents`
+    // If the chat exists, check if the combination of name and userClick already exists in the user array
+    const existingUsers = chatData[0].user;
+    const hasExistingUsers =
+      existingUsers.includes(name) && existingUsers.includes(userClick);
+
+    if (!hasExistingUsers) {
+      // Add the new combination of users to the chat
+      const updatedUserArray = [...existingUsers, name, userClick];
+
+      // Update the chat with the new user combination
+      const { error: userUpdateError } = await supabase
+        .from("chat")
+        .update({ user: updatedUserArray })
+        .eq("id", id);
+
+      if (userUpdateError) {
+        return res
+          .status(500)
+          .json({ error: "Error updating user list in chat" });
+      }
+    }
+
+    // Continue with updating contents as before
     const newRecord = {
       id: id,
       userIdSending: userIdSending,
@@ -144,10 +222,8 @@ app.post("/api/add-chat", async (req, res) => {
       content: content,
     };
 
-    // Cập nhật mảng `contents` với bản ghi mới
     let updatedContents = [...chatData[0].contents, newRecord];
 
-    // Kiểm tra điều kiện bổ sung: nếu `contents` ban đầu là mảng rỗng và tên trùng
     if (chatData[0].contents.length === 0 && name === newRecord.name) {
       const newRecordTwo = {
         id: id,
@@ -157,13 +233,12 @@ app.post("/api/add-chat", async (req, res) => {
         time: getCurrentTimeInSeconds(),
         liked: false,
         avatar: avatar,
+        content: content,
       };
 
-      // Thêm `newRecordTwo` vào `updatedContents`
       updatedContents = [...updatedContents, newRecordTwo];
     }
 
-    // Cập nhật dữ liệu trong bảng `chat`
     const { error: updateError } = await supabase
       .from("chat")
       .update({ contents: updatedContents })
@@ -231,7 +306,7 @@ app.post("/api/get-chat-double-user", async (req, res) => {
       (chat) => chat.user.includes(namelogin1) && chat.user.includes(namelogin2)
     );
 
-    console.log('chatData :>> ', chatData);
+    console.log("chatData :>> ", chatData);
 
     if (!chatData) {
       return res
@@ -257,11 +332,9 @@ app.post("/api/update-liked", async (req, res) => {
 
   // Kiểm tra input hợp lệ
   if (!namelogin1 || !namelogin2 || key === undefined || liked === undefined) {
-    return res
-      .status(400)
-      .json({
-        error: "Both namelogin1, namelogin2, key, and liked are required",
-      });
+    return res.status(400).json({
+      error: "Both namelogin1, namelogin2, key, and liked are required",
+    });
   }
 
   try {
