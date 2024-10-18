@@ -114,122 +114,76 @@ app.get("/api/chat", async (req, res) => {
 
 //Thêm mới bản ghi cho contents chat giữa 2 user
 app.post("/api/add-chat", async (req, res) => {
-  const { id, userIdSending, avatar, name, content, userClick, userIdSendingOther } = req.body;
+  const { userIdSending, avatar, name, content, userClick, userIdSendingOther } = req.body;
 
   try {
-    // Check if the chat with the given ID exists
-    const { data: chatData, error } = await supabase
+    // Lấy ID lớn nhất hiện tại trong bảng chat
+    const { data: maxIdData, error: maxIdError } = await supabase
       .from("chat")
-      .select("*")
-      .eq("id", id);
+      .select("id")
+      .order("id", { ascending: false })
+      .limit(1);
 
-    if (error) {
-      return res.status(500).json({ error: "Error fetching chat data" });
+    if (maxIdError) {
+      return res.status(500).json({ error: "Error fetching max ID" });
     }
+
+    // Nếu không có bản ghi nào, ID sẽ là 1, nếu có thì lấy ID lớn nhất + 1
+    const newChatId = maxIdData.length === 0 ? 1 : maxIdData[0].id + 1;
 
     // Prepare the new content record
     const createContentRecord = (key, recordName, recordContent, userIdSending) => {
       const record = {
-        id: id,
         key: key,
         name: recordName,
         time: getCurrentTimeInSeconds(),
         liked: false,
         avatar: avatar,
         content: recordContent || null,
-        userIdSending: userIdSending
+        userIdSending: userIdSending,
       };
-  
       return record;
     };
 
     let updatedContents = [];
 
-    // If the chat does not exist, create a new record
-    if (!chatData || chatData.length === 0) {
-      // Create the new chat record
-      const newChat = {
-        id: id,
-        user: [name, userClick],
-        contents: [],
-      };
+    // Create the new chat record
+    const newChat = {
+      id: newChatId, // Sử dụng ID mới
+      user: [name, userClick],
+      contents: [],
+    };
 
-      // Insert the new chat record
-      const { error: insertError } = await supabase
-        .from("chat")
-        .insert([newChat]);
+    // Insert the new chat record
+    const { error: insertError } = await supabase
+      .from("chat")
+      .insert([newChat]);
 
-      if (insertError) {
-        return res
-          .status(500)
-          .json({ error: "Error creating new chat record" });
-      }
-
-      // Create the initial content records
-      updatedContents.push(createContentRecord(1, name, content, userIdSending));
-      updatedContents.push(createContentRecord(2, userClick, null, userIdSendingOther));
-
-      // Update the chat with the new content records
-      const { error: updateContentsError } = await supabase
-        .from("chat")
-        .update({ contents: updatedContents })
-        .eq("id", id);
-
-      if (updateContentsError) {
-        return res.status(500).json({ error: "Error updating chat contents" });
-      }
-
-      return res.status(201).json({
-        contents: {
-          id: id,
-          user: [name, userClick],
-          contents: updatedContents,
-        },
-      });
+    if (insertError) {
+      return res.status(500).json({ error: "Error creating new chat record" });
     }
 
-    // If the chat exists, check if the combination of name and userClick already exists in the user array
-    const existingUsers = chatData[0].user;
-    const hasExistingUsers =
-      existingUsers.includes(name) && existingUsers.includes(userClick);
+    // Create the initial content records
+    updatedContents.push(createContentRecord(1, name, content, userIdSending));
+    updatedContents.push(createContentRecord(2, userClick, null, userIdSendingOther));
 
-    // If the user combination is not present, add them to the chat's user list
-    if (!hasExistingUsers) {
-      const updatedUserArray = [...existingUsers, name, userClick];
-
-      const { error: userUpdateError } = await supabase
-        .from("chat")
-        .update({ user: updatedUserArray })
-        .eq("id", id);
-
-      if (userUpdateError) {
-        return res
-          .status(500)
-          .json({ error: "Error updating user list in chat" });
-      }
-    }
-
-    // Continue with updating contents
-    const currentContents = chatData[0].contents;
-    const newRecord = createContentRecord(currentContents.length + 1, name, content);
-    updatedContents = [...currentContents, newRecord];
-
-    // Add an additional record if the contents were originally empty and name matches
-    if (currentContents.length === 0 && name === newRecord.name) {
-      const additionalRecord = createContentRecord(updatedContents.length + 1, userClick, null);
-      updatedContents.push(additionalRecord);
-    }
-
-    const { error: updateError } = await supabase
+    // Update the chat with the new content records
+    const { error: updateContentsError } = await supabase
       .from("chat")
       .update({ contents: updatedContents })
-      .eq("id", id);
+      .eq("id", newChatId); // Sử dụng ID mới
 
-    if (updateError) {
+    if (updateContentsError) {
       return res.status(500).json({ error: "Error updating chat contents" });
     }
 
-    return res.status(200).json({ updatedContents });
+    return res.status(201).json({
+      contents: {
+        id: newChatId,
+        user: [name, userClick],
+        contents: updatedContents,
+      },
+    });
   } catch (error) {
     console.error("Error adding chat:", error);
     res.status(500).json({ error: "Server error" });
