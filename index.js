@@ -114,7 +114,7 @@ app.get("/api/chat", async (req, res) => {
 
 //Thêm mới bản ghi cho contents chat giữa 2 user
 app.post("/api/add-chat", async (req, res) => {
-  const { id, userIdSending, avatar, name, content, userClick } = req.body;
+  const { id, userIdSending, avatar, name, content, userClick, userIdSendingOther } = req.body;
 
   try {
     // Check if the chat with the given ID exists
@@ -126,6 +126,24 @@ app.post("/api/add-chat", async (req, res) => {
     if (error) {
       return res.status(500).json({ error: "Error fetching chat data" });
     }
+
+    // Prepare the new content record
+    const createContentRecord = (key, recordName, recordContent, userIdSending) => {
+      const record = {
+        id: id,
+        key: key,
+        name: recordName,
+        time: getCurrentTimeInSeconds(),
+        liked: false,
+        avatar: avatar,
+        content: recordContent || null,
+        userIdSending: userIdSending
+      };
+  
+      return record;
+    };
+
+    let updatedContents = [];
 
     // If the chat does not exist, create a new record
     if (!chatData || chatData.length === 0) {
@@ -147,32 +165,14 @@ app.post("/api/add-chat", async (req, res) => {
           .json({ error: "Error creating new chat record" });
       }
 
-      // Create newRecordTwo to add to contents
-      let key = 1;
-      const newRecordTwo = {
-        id: id,
-        userIdSending: userIdSending,
-        key: key, // Start with key 1 for the first content item
-        name: name,
-        time: getCurrentTimeInSeconds(),
-        liked: false,
-        avatar: avatar,
-        content: content,
-      };
+      // Create the initial content records
+      updatedContents.push(createContentRecord(1, name, content, userIdSending));
+      updatedContents.push(createContentRecord(2, userClick, null, userIdSendingOther));
 
-      const newRecordThree = {
-        id: id,
-        key: key + 1, 
-        name: userClick,
-        time: getCurrentTimeInSeconds(),
-        liked: false,
-        avatar: avatar,
-      };
-
-      // Update the chat with the newRecordTwo in contents
+      // Update the chat with the new content records
       const { error: updateContentsError } = await supabase
         .from("chat")
-        .update({ contents: [newRecordTwo, newRecordThree] })
+        .update({ contents: updatedContents })
         .eq("id", id);
 
       if (updateContentsError) {
@@ -183,7 +183,7 @@ app.post("/api/add-chat", async (req, res) => {
         contents: {
           id: id,
           user: [name, userClick],
-          contents: [newRecordTwo, newRecordThree],
+          contents: updatedContents,
         },
       });
     }
@@ -193,11 +193,10 @@ app.post("/api/add-chat", async (req, res) => {
     const hasExistingUsers =
       existingUsers.includes(name) && existingUsers.includes(userClick);
 
+    // If the user combination is not present, add them to the chat's user list
     if (!hasExistingUsers) {
-      // Add the new combination of users to the chat
       const updatedUserArray = [...existingUsers, name, userClick];
 
-      // Update the chat with the new user combination
       const { error: userUpdateError } = await supabase
         .from("chat")
         .update({ user: updatedUserArray })
@@ -210,33 +209,15 @@ app.post("/api/add-chat", async (req, res) => {
       }
     }
 
-    // Continue with updating contents as before
-    const newRecord = {
-      id: id,
-      userIdSending: userIdSending,
-      key: chatData[0].contents.length + 1,
-      name: name,
-      time: getCurrentTimeInSeconds(),
-      liked: false,
-      avatar: avatar,
-      content: content,
-    };
+    // Continue with updating contents
+    const currentContents = chatData[0].contents;
+    const newRecord = createContentRecord(currentContents.length + 1, name, content);
+    updatedContents = [...currentContents, newRecord];
 
-    let updatedContents = [...chatData[0].contents, newRecord];
-
-    if (chatData[0].contents.length === 0 && name === newRecord.name) {
-      const newRecordTwo = {
-        id: id,
-        userIdSending: userIdSending,
-        key: updatedContents.length + 1,
-        name: userClick,
-        time: getCurrentTimeInSeconds(),
-        liked: false,
-        avatar: avatar,
-        content: content,
-      };
-
-      updatedContents = [...updatedContents, newRecordTwo];
+    // Add an additional record if the contents were originally empty and name matches
+    if (currentContents.length === 0 && name === newRecord.name) {
+      const additionalRecord = createContentRecord(updatedContents.length + 1, userClick, null);
+      updatedContents.push(additionalRecord);
     }
 
     const { error: updateError } = await supabase
